@@ -1,6 +1,8 @@
 # Custom Boot Splash
 This plugin can display Boot Splash on PS Vita / PS TV at boot.<br>
 Please convert the image you want to display with [Boot Splash image converter](https://princess-of-sleeping.github.io/Vita-HTML-Tools/boot_splash/index.html) and place it in ur0:tai/<br>
+<br>
+The boot logo that is displayed in the beginning can not be hidden with this plugin.<br>
 
 ## install
 Look for the line marked "load os0:kd/clockgen.skprx" from boot_config.txt.<br>
