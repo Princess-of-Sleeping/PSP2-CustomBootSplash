@@ -1,9 +1,9 @@
 # CBS
-This tool can display a Image/Animation on PS Vita at boot.<br>
+This tool can display a Image/Animation during the PSVita boot process.<br>
 <br>
-The boot logo that is displayed at the beginning can not be hidden with this plugin. Refer to https://github.com/skgleba/enso_ex<br>
+The boot logo that is displayed at the beginning can not be hidden with this plugin. Use https://github.com/skgleba/enso_ex instead.<br>
 <br>
-### To update365 users
+### To update365 users:
 If Enso 3.65-update365 is installed and boot_config.txt exists in vs0:tai/ CBS will not be loaded, please update Enso to the latest version.<br>
 <br>
 https://github.com/TheOfficialFloW/enso/releases<br>
