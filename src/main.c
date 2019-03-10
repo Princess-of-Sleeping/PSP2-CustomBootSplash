@@ -1,77 +1,157 @@
-/*
-  Custom Boot Splash
-  Copyright (C) 2018, Princess of Sleeping
-  This program is free software: you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation, either version 3 of the License, or
-  (at your option) any later version.
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-  You should have received a copy of the GNU General Public License
-  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
+#include <psp2/kernel/processmgr.h>
+#include <psp2/io/fcntl.h>
+#include <psp2/io/devctl.h>
+#include <psp2/ctrl.h>
+#include <psp2/sysmodule.h>
+#include <psp2/kernel/sysmem.h>
+#include <psp2/net/netctl.h>
+#include <psp2/io/stat.h>
 
-#include <psp2kern/kernel/modulemgr.h>
-#include <psp2kern/kernel/sysmem.h>
-#include <psp2kern/kernel/threadmgr.h>
-#include <psp2kern/kernel/cpu.h>
-#include <psp2kern/io/fcntl.h>
-#include <psp2kern/io/stat.h>
-#include <psp2kern/display.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
-void _start() __attribute__ ((weak, alias ("module_start")));
-int module_start(SceSize argc, const void *args){
+#include "debug_screen.h"
 
-	SceKernelAllocMemBlockKernelOpt optp;
-	SceDisplayFrameBuf fb;
-	SceIoStat stat;
+#define printf psvDebugScreenPrintf
 
-	void *fb_addr = NULL;
+enum {
+	SCREEN_WIDTH = 960,
+	SCREEN_HEIGHT = 544,
+	PROGRESS_BAR_WIDTH = SCREEN_WIDTH,
+	PROGRESS_BAR_HEIGHT = 10,
+	LINE_SIZE = SCREEN_WIDTH,
+};
 
-	int stat_ret, uid, fd;
+static unsigned buttons[] = {
+	SCE_CTRL_SELECT,
+	SCE_CTRL_START,
+	SCE_CTRL_UP,
+	SCE_CTRL_RIGHT,
+	SCE_CTRL_DOWN,
+	SCE_CTRL_LEFT,
+	SCE_CTRL_LTRIGGER,
+	SCE_CTRL_RTRIGGER,
+	SCE_CTRL_TRIANGLE,
+	SCE_CTRL_CIRCLE,
+	SCE_CTRL_CROSS,
+	SCE_CTRL_SQUARE,
+};
 
-	stat_ret = ksceIoGetstat("ur0:tai/boot_splash.bin", &stat);
+int fcp(const char *from, const char *to) {
+	long psz;
+	FILE *fp = fopen(from,"rb");
 
-	if((stat_ret < 0) || ((uint32_t)stat.st_size != 0x1FE000) || (SCE_SO_ISDIR(stat.st_mode) != 0)){
-		return SCE_KERNEL_START_SUCCESS;
+	fseek(fp, 0, SEEK_END);
+	psz = ftell(fp);
+	rewind(fp);
+
+	char* pbf = (char*) malloc(sizeof(char) * psz);
+	fread(pbf, sizeof(char), (size_t)psz, fp);
+
+	FILE *pFile = fopen(to, "wb");
+	
+	for (int i = 0; i < psz; ++i) {
+			fputc(pbf[i], pFile);
 	}
-
-	optp.size = 0x58;
-	optp.attr = 2;
-	optp.paddr = 0x1C000000;
-
-	if((uid = ksceKernelAllocMemBlock("SceDisplay", 0x6020D006, 0x200000, &optp)) < 0){
-		return SCE_KERNEL_START_SUCCESS;
-	}
-
-	ksceKernelGetMemBlockBase(uid, (void**)&fb_addr);
-
-	fd = ksceIoOpen("ur0:tai/boot_splash.bin", SCE_O_RDONLY, 0);
-	ksceIoRead(fd, fb_addr, 0x1FE000);
-	ksceIoClose(fd);
-
-	ksceKernelCpuDcacheAndL2WritebackInvalidateRange(fb_addr, 0x1FE000);
-
-	fb.size        = sizeof(fb);
-	fb.base        = fb_addr;
-	fb.pitch       = 960;
-	fb.pixelformat = 0;
-	fb.width       = 960;
-	fb.height      = 544;
-
-	ksceDisplaySetFrameBuf(&fb, 1);
-
-	ksceDisplayWaitVblankStart();
-
-	ksceKernelFreeMemBlock(uid);
-
-	ksceKernelDelayThread(3 * 1000 * 1000);
-
-	return SCE_KERNEL_START_SUCCESS;
+   
+	fclose(fp);
+	fclose(pFile);
+	return 1;
 }
 
-int module_stop(SceSize argc, const void *args){
-	return SCE_KERNEL_STOP_SUCCESS;
+uint32_t get_key(void) {
+	static unsigned prev = 0;
+	SceCtrlData pad;
+	while (1) {
+		memset(&pad, 0, sizeof(pad));
+		sceCtrlPeekBufferPositive(0, &pad, 1);
+		unsigned new = prev ^ (pad.buttons & prev);
+		prev = pad.buttons;
+		for (size_t i = 0; i < sizeof(buttons)/sizeof(*buttons); ++i)
+			if (new & buttons[i])
+				return buttons[i];
+
+		sceKernelDelayThread(1000); // 1ms
+	}
+}
+
+void press_exit(void) {
+	printf("Press any key to exit this application.\n");
+	get_key();
+	sceKernelExitProcess(0);
+}
+
+int ex(const char *fname) {
+    FILE *file;
+    if ((file = fopen(fname, "r")))
+    {
+        fclose(file);
+        return 1;
+    }
+    return 0;
+}
+
+int config_util(void) {
+	psvDebugScreenClear();
+	static char uwu[4] = {0x30, 0x30, 0x30, 0};
+	printf("CBS-Mod configurator by SKGleba\n");
+	printf("\n1 - Boot Logo/Animation ?\n");
+	printf("Options:\n");
+	printf("  CROSS      Boot Animation\n");
+	printf("  SQUARE     Boot Logo\n\n");
+
+	if (get_key() == SCE_CTRL_CROSS) uwu[1] = 0x31;
+	
+	printf("\n2 - Delay boot ?\n");
+	printf("Options:\n");
+	printf("  CROSS      Disable\n");
+	printf("  SQUARE     5 sec\n");
+	printf("  TRIANGLE   10 sec\n");
+	printf("  CIRCLE     15 sec\n\n");
+
+	int kii = get_key();
+	
+	if (kii == SCE_CTRL_SQUARE) {
+		uwu[2] = 0x31;
+		uwu[3] = 5;
+	} else if (kii == SCE_CTRL_TRIANGLE) {
+		uwu[2] = 0x31;
+		uwu[3] = 10;
+	} else if (kii == SCE_CTRL_CIRCLE) {
+		uwu[2] = 0x31;
+		uwu[3] = 15;
+	}
+	
+	SceUID fd = sceIoOpen("ur0:tai/cbs_cfg.bin", SCE_O_WRONLY | SCE_O_TRUNC | SCE_O_CREAT, 0777);
+	sceIoWrite(fd, uwu, 4);
+	sceIoClose(fd);
+	
+	printf("done\n");
+}
+
+int main(int argc, char *argv[]) {
+	(void)argc;
+	(void)argv;
+
+	psvDebugScreenInit();
+
+	if (ex("ur0:tai/cbs.skprx") == 0) {
+		printf("Could not find cbs.skprx in ur0:tai/ !\n");
+		if (ex("ur0:tai/custom_boot_splash.skprx") == 1) sceIoRemove("ur0:tai/custom_boot_splash.skprx");
+		printf("copying... ");
+		fcp("app0:cbs.skprx", "ur0:tai/cbs.skprx");
+		printf("ok!\n");
+		printf("adding entry to ur0:tai/boot_config.txt... ");
+		SceUID fd = sceIoOpen("ur0:tai/boot_config.txt", SCE_O_WRONLY, 0777);
+		sceIoWrite(fd, (void *)"# CBS\n- load\tur0:tai/cbs.skprx\n\n# ", strlen("# CBS\n- load\tur0:tai/cbs.skprx\n\n# "));
+		sceIoClose(fd);
+		printf("ok!\n");
+	}
+	
+	config_util();
+	
+	press_exit();
+
+	return 0;
 }

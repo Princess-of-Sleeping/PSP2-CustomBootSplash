@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+﻿cmake_minimum_required(VERSION 2.8)
 
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   if(DEFINED ENV{VITASDK})
@@ -8,25 +8,48 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   endif()
 endif()
 
-project(custom_boot_splash)
+set(SHORT_NAME cbs_manager)
+project(${SHORT_NAME})
 include("${VITASDK}/share/vita.cmake" REQUIRED)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -Wall -O3 -nostdlib")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
+set(VITA_APP_NAME "Custom Boot Splash Manager")
+set(VITA_TITLEID  "SKGCBSMGR")
 
-add_executable(custom_boot_splash
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -fno-builtin-printf")
+if (DEFINED SAFETY)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror")
+endif()
+set(IGNORE_WARNING "${SAFETY}")
+
+include_directories(${PROJECT_BINARY_DIR})
+
+include_directories(
+  src
+)
+
+add_executable(${SHORT_NAME}
   src/main.c
+  src/debug_screen.c
+  src/debug_screen_font.c
 )
 
-target_link_libraries(custom_boot_splash
-  SceSysmemForDriver_stub
-  SceCpuForDriver_stub
-  SceThreadmgrForDriver_stub
-  SceIofilemgrForDriver_stub
-  SceDisplayForDriver_stub
+target_link_libraries(${SHORT_NAME}
+  SceDisplay_stub
+  SceCtrl_stub
+  SceShellSvc_stub
+  SceProcessmgr_stub
+  SceVshBridge_stub
+  SceNet_stub
+  SceNetCtl_stub
+  SceSysmodule_stub
+  SceSblUpdateMgr_stub
 )
 
-vita_create_self(custom_boot_splash.skprx custom_boot_splash
-  CONFIG exports.yml
-  UNSELF
+vita_create_self(${SHORT_NAME}.self ${SHORT_NAME} UNSAFE)
+
+vita_create_vpk(${SHORT_NAME}.vpk ${VITA_TITLEID} ${SHORT_NAME}.self
+  VERSION ${VITA_VERSION}
+  NAME ${VITA_APP_NAME}
+  FILE ${CMAKE_BINARY_DIR}/plugin/cbs.skprx cbs.skprx
+  FILE ${CMAKE_SOURCE_DIR}/banim.xgif banim.xgif
 )

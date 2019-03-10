@@ -1,7 +1,7 @@
 custom_boot_splash:
   attributes: 0
   version:
-    major: 1
+    major: 2
     minor: 0
   main:
     start: module_start
