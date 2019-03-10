@@ -139,8 +139,11 @@ int main(int argc, char *argv[]) {
 	if (ex("ur0:tai/cbs.skprx") == 0) {
 		printf("Could not find cbs.skprx in ur0:tai/ !\n");
 		if (ex("ur0:tai/custom_boot_splash.skprx") == 1) sceIoRemove("ur0:tai/custom_boot_splash.skprx");
-		printf("copying... ");
+		printf("copying: cbs plugin... ");
 		fcp("app0:cbs.skprx", "ur0:tai/cbs.skprx");
+		printf("ok!\n");
+		printf("copying: stock animation... ");
+		fcp("app0:banim.xgif", "ur0:tai/boot_animation.img");
 		printf("ok!\n");
 		printf("adding entry to ur0:tai/boot_config.txt... ");
 		SceUID fd = sceIoOpen("ur0:tai/boot_config.txt", SCE_O_WRONLY, 0777);
