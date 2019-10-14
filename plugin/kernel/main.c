@@ -148,7 +148,7 @@ static int livebanimthread(SceSize args, void *argp) {
 	ksceIoRead(fd, flags, sizeof(flags));
 	uid = ksceKernelAllocMemBlock("SceDisplay", 0x6020D006, 0x200000, &optp);
 	ksceKernelGetMemBlockBase(uid, (void**)&fb_addr);
-	ksceKernelCpuDcacheAndL2WritebackInvalidateRange(fb_addr, 0x1FE000);
+	memset(fb_addr, 0, 0x1FE000);
 	yid = ksceKernelAllocMemBlock("temp_anim", SCE_KERNEL_MEMBLOCK_TYPE_KERNEL_RW, 0x200000, NULL);
 	ksceKernelGetMemBlockBase(yid, (void**)&gz_addr);
 	ksceIoLseek(fd, 0, 0);
@@ -246,6 +246,7 @@ static int LoadBootlogoSingle(void) {
 	ksceIoGetstat("ur0:tai/boot_splash.img", &stat);
 	uid = ksceKernelAllocMemBlock("SceDisplay", 0x6020D006, 0x200000, &optp);
 	ksceKernelGetMemBlockBase(uid, (void**)&fb_addr);
+	memset(fb_addr, 0, 0x1FE000);
 	if (stat.st_size < 0x1FE000) {
 		yid = ksceKernelAllocMemBlock("gz", SCE_KERNEL_MEMBLOCK_TYPE_KERNEL_RW, 0x200000, NULL);
 		ksceKernelGetMemBlockBase(yid, (void**)&gz_addr);
@@ -256,7 +257,6 @@ static int LoadBootlogoSingle(void) {
 		ksceIoRead(fd, (void *)fb_addr, 0x1FE000);
 	}
 	ksceIoClose(fd);
-	ksceKernelCpuDcacheAndL2WritebackInvalidateRange(fb_addr, 0x1FE000);
 	fb.size        = sizeof(fb);
 	fb.base        = fb_addr;
 	fb.pitch       = 960;
@@ -295,7 +295,7 @@ static int banimthread(SceSize args, void *argp) {
 	ksceIoRead(fd, flags, sizeof(flags));
 	uid = ksceKernelAllocMemBlock("SceDisplay", 0x6020D006, 0x200000, &optp);
 	ksceKernelGetMemBlockBase(uid, (void**)&fb_addr);
-	ksceKernelCpuDcacheAndL2WritebackInvalidateRange(fb_addr, 0x1FE000);
+	memset(fb_addr, 0, 0x1FE000);
 	fb.base = fb_addr;
 	ksceDisplaySetFrameBuf(&fb, 1);
 	if (stat.st_size < 0x200000 && flags[2] == 0) { // optimized for small anims, copy to mem, then loop
@@ -319,7 +319,10 @@ static int banimthread(SceSize args, void *argp) {
 			curpos = curpos + sizeof(rsz);
 			ksceGzipDecompress((void *)fb_addr, 0x1FE000, (void *)(gz_addr + curpos), NULL);
 			curpos = curpos + csz;
-			if (flags[3] > 0) ksceKernelCpuDcacheAndL2WritebackInvalidateRange(fb_addr, 0x1FE000);
+			if (flags[3] > 0) {
+				ksceKernelCpuDcacheAndL2WritebackInvalidateRange(fb_addr, 0x1FE000);
+				memset(fb_addr, 0, 0x1FE000);
+			}
 			ksceDisplayWaitVblankStart();
 			cur++;
 		}
@@ -351,7 +354,10 @@ static int banimthread(SceSize args, void *argp) {
 			} else {
 				ksceIoRead(fd, fb_addr, csz);
 			}
-			if (flags[3] > 0) ksceKernelCpuDcacheAndL2WritebackInvalidateRange(fb_addr, 0x1FE000);
+			if (flags[3] > 0) {
+				ksceKernelCpuDcacheAndL2WritebackInvalidateRange(fb_addr, 0x1FE000);
+				memset(fb_addr, 0, 0x1FE000);
+			}
 			ksceDisplayWaitVblankStart();
 			cur++;
 		}
@@ -361,21 +367,19 @@ static int banimthread(SceSize args, void *argp) {
 	ksceKernelExitDeleteThread(0);
 	return 1;
 }
-
+		
 void _start() __attribute__ ((weak, alias ("module_start")));
 int module_start(SceSize argc, const void *args){
-	
-	static char uwu[4] = {0x30, 0x30, 0x30, 0}; // IMGTYPE, ION, DELAY, DELAYTIMESEC
+	static char uwu[4] = {0x30, 0x30, 0x30, 0x30}; // IMGTYPE, MAGIC1, MAGIC2, VER
 	SceUID fd = ksceIoOpen("ur0:tai/cbs_cfg.bin", SCE_O_RDONLY, 0);
 	if (fd < 0)
 		return SCE_KERNEL_START_FAILED;
 	ksceIoRead(fd, uwu, 4);
 	ksceIoClose(fd);
 	
-	if (uwu[1] != 0x31)
-		return SCE_KERNEL_START_FAILED;
-	
-	if (uwu[0] == 0x31 && ex("ur0:tai/boot_splash.img") == 1) {
+	if (uwu[0] == 0x30 || uwu[1] != 0x3C || uwu[2] != 0x3B || uwu[3] != 0x33) {
+		return SCE_KERNEL_START_SUCCESS;
+	} else if (uwu[0] == 0x31 && ex("ur0:tai/boot_splash.img") == 1) {
 		LoadBootlogoSingle();
 	} else if (uwu[0] == 0x32 && ex("ur0:tai/boot_animation.img") == 1) {
 		SceUID athid = ksceKernelCreateThread("b", banimthread, 0x00, 0x1000, 0, 0, 0);
@@ -384,8 +388,6 @@ int module_start(SceSize argc, const void *args){
 		SceUID bthid = ksceKernelCreateThread("l", livebanimthread, 0x00, 0x1000, 0, 0, 0);
 		ksceKernelStartThread(bthid, 0, NULL);
 	}
-	
-	if (uwu[2] == 0x31) ksceKernelDelayThread(uwu[3] * 1000 * 1000);
 
 	return SCE_KERNEL_START_SUCCESS;
 }

@@ -10,21 +10,7 @@
 
 #define CONFIG_PATH "ur0:tai/cbs_cfg.bin"
 
-#define LOG(...) \
-	do { \
-		char buffer[256]; \
-		sceClibSnprintf(buffer, sizeof(buffer), ##__VA_ARGS__); \
-		logg(buffer, sceClibStrnlen(buffer, sizeof(buffer)), "ur0:temp/xmldmp.raw", 2); \
-} while (0)
-	
-#define LOG_START(...) \
-	do { \
-		char buffer[256]; \
-		sceClibSnprintf(buffer, sizeof(buffer), ##__VA_ARGS__); \
-		logg(buffer, sceClibStrnlen(buffer, sizeof(buffer)), "ur0:temp/xmldmp.raw", 1); \
-} while (0)
-
-static char cfg[4] = {0x30, 0x30, 0x30, 0}; // IMGTYPE, ION, DELAY, DELAYTIMESEC
+static char cfg[4] = {0x30, 0x3C, 0x3B, 0x33}; // IMGTYPE, ION, DELAY, DELAYTIMESEC
 
 extern unsigned char _binary_theme_settings_xml_start;
 extern unsigned char _binary_theme_settings_xml_size;
@@ -64,6 +50,10 @@ static int load_config_user(void) {
   if (fd >= 0) {
     sceIoRead(fd, &cfg, sizeof(cfg));
     sceIoClose(fd);
+	if (cfg[3] != 0x33) {
+		cfg[0] = 0x30, cfg[1] = 0x3C, cfg[2] = 0x3B, cfg[3] = 0x33;
+		save_config_user();
+	}
 	return 0;
   }
   save_config_user();
@@ -75,15 +65,8 @@ static int sceRegMgrGetKeyInt_SceSystemSettingsCore_patched(const char *category
   if (sceClibStrncmp(category, "/CONFIG/CBSM", 12) == 0) {
     if (value) {
       load_config_user();
-      if (sceClibStrncmp(name, "imgt", 4) == 0) {
+      if (sceClibStrncmp(name, "imgt", 4) == 0)
         *value = (cfg[0] - 0x30);
-      } else if (sceClibStrncmp(name, "ion", 3) == 0) {
-		*value = (cfg[1] - 0x30);
-	  } else if (sceClibStrncmp(name, "dfl", 3) == 0) {
-		*value = (cfg[2] - 0x30);
-	  } else if (sceClibStrncmp(name, "deltime", 7) == 0) {
-		*value = cfg[3];
-      }
     }
     return 0;
   }
@@ -93,15 +76,8 @@ static int sceRegMgrGetKeyInt_SceSystemSettingsCore_patched(const char *category
 static tai_hook_ref_t g_sceRegMgrSetKeyInt_SceSystemSettingsCore_hook;
 static int sceRegMgrSetKeyInt_SceSystemSettingsCore_patched(const char *category, const char *name, int value) {
   if (sceClibStrncmp(category, "/CONFIG/CBSM", 12) == 0) {
-    if (sceClibStrncmp(name, "imgt", 4) == 0) {
+    if (sceClibStrncmp(name, "imgt", 4) == 0)
 		cfg[0] = (value + 0x30);
-    } else if (sceClibStrncmp(name, "ion", 3) == 0) {
-		cfg[1] = (value + 0x30);
-	} else if (sceClibStrncmp(name, "dfl", 3) == 0) {
-		cfg[2] = (value + 0x30);
-	} else if (sceClibStrncmp(name, "deltime", 7) == 0) {
-		cfg[3] = value;
-    }
     save_config_user();
     return 0;
   }
@@ -179,7 +155,6 @@ static int sceKernelStopUnloadModule_SceSettings_patched(SceUID modid, SceSize a
 
 void _start() __attribute__ ((weak, alias ("module_start")));
 int module_start(SceSize argc, const void *args) {
-	LOG_START("started");
   sceClibMemset(&cfg, 0, sizeof(cfg));
   load_config_user();
   g_hooks[0] = taiHookFunctionImport(&g_sceKernelLoadStartModule_SceSettings_hook, 
