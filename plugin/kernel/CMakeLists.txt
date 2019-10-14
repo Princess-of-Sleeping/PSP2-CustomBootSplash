@@ -8,17 +8,19 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   endif()
 endif()
 
-project(custom_boot_splash)
+project(cbsm)
 include("${VITASDK}/share/vita.cmake" REQUIRED)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -Wall -O3 -nostdlib")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -Wall -O3 -std=gnu99")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fno-rtti -fno-exceptions")
 
-add_executable(custom_boot_splash
+add_executable(cbsm
   main.c
+  blit.c
+  font.c
 )
 
-target_link_libraries(custom_boot_splash
+target_link_libraries(cbsm
   SceSysmemForDriver_stub
   SceSysrootForDriver_stub
   SceKernelUtilsForDriver_stub
@@ -26,9 +28,18 @@ target_link_libraries(custom_boot_splash
   SceThreadmgrForDriver_stub
   SceIofilemgrForDriver_stub
   SceDisplayForDriver_stub
+  SceSysclibForDriver_stub
+  SceSysrootForKernel_stub
+  SceDipswForDriver_stub
+  k
+  gcc
 )
 
-vita_create_self(cbs.skprx custom_boot_splash
+set_target_properties(cbsm
+  PROPERTIES LINK_FLAGS "-nostdlib"
+)
+
+vita_create_self(cbsm.skprx cbsm
   CONFIG exports.yml
   UNSELF
 )

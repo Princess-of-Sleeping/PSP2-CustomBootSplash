@@ -1,0 +1,71 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<system_settings version="1.0" plugin="theme_settings_plugin">
+
+  <!-- テーマ＆背景 -->
+  <setting_list id="theme_settings" title="msg_theme_background">
+
+    <!-- テーマ -->
+    <setting_list id="setting_list_custom_themes" icon="tex_spanner" title="msg_theme">
+      <user_custom id="user_custom_custom_themes"/>
+    </setting_list>
+	
+	<setting_list id="id_cbsm"
+                  title="   Boot Screen">
+	  <toggle_switch id="enable_cbsm"
+                   key="/CONFIG/CBSM/ion"
+                   title="Use CBS-M"
+				   description="Enables the CBS-M plugin"
+                   icon="tex_spanner"/>
+	  <list id="id_cbsm_imgt" 
+            key="/CONFIG/CBSM/imgt"
+            title="Boot Image Type">
+        <list_item id="id_cbsm_imgt_static" title="Static Image" value="1"/>
+		<list_item id="id_cbsm_imgt_anim" title="Animation" value="2"/>
+		<list_item id="id_cbsm_imgt_info" title="Console Info" value="3"/>
+      </list>
+	  <toggle_switch id="dfl"
+                   key="/CONFIG/CBSM/dfl"
+                   title="Delay boot"/>
+	  <list id="id_cbsm_dtime" 
+            key="/CONFIG/CBSM/deltime"
+            title="Delay duration">
+        <list_item id="id_cbsm_dtime_5" title="5s" value="5"/>
+		<list_item id="id_cbsm_dtime_10" title="10s" value="10"/>
+		<list_item id="id_cbsm_dtime_15" title="15s" value="15"/>
+		<list_item id="id_cbsm_dtime_20" title="20s" value="20"/>
+      </list>
+	</setting_list>
+
+    <!-- スタート画面 -->
+    <setting_list id="setting_list_start_screen" title="msg_start_screen">
+      <user_custom id="user_custom_start_screen"/>
+    </setting_list>
+
+    <!-- ホーム画面の背景 -->
+    <setting_list id="setting_list_home_screen" title="msg_home_screen_backgrounds">
+      <user_custom id="user_custom_home_screen"/>
+    </setting_list>
+
+  </setting_list>
+
+  <!-- テーマ 詳細 -->
+  <setting_list id="setting_list_custom_theme_detail" title="">
+    <user_custom id="user_custom_custom_theme_detail"/>
+  </setting_list>
+
+  <!-- テーマ 情報 -->
+  <setting_list id="setting_list_custom_theme_information" title="" style="edit">
+    <user_custom id="user_custom_custom_theme_information"/>
+    <label id="label_custom_theme_information_name" title="msg_name" />
+    <label id="label_custom_theme_information_provider" title="msg_provider" />
+		<label id="label_custom_theme_information_updated" title="msg_updated" />
+		<label id="label_custom_theme_information_size" title="msg_size" />
+		<label id="label_custom_theme_information_version" title="msg_version" />
+  </setting_list>
+
+  <!-- スタート画面 確認 -->
+  <setting_list id="setting_list_start_screen_confirm" title="">
+    <user_custom id="user_custom_start_screen_confirm"/>
+  </setting_list>
+
+</system_settings>

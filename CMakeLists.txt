@@ -50,6 +50,8 @@ vita_create_self(${SHORT_NAME}.self ${SHORT_NAME} UNSAFE)
 vita_create_vpk(${SHORT_NAME}.vpk ${VITA_TITLEID} ${SHORT_NAME}.self
   VERSION ${VITA_VERSION}
   NAME ${VITA_APP_NAME}
-  FILE ${CMAKE_BINARY_DIR}/plugin/cbs.skprx cbs.skprx
+  FILE ${CMAKE_BINARY_DIR}/plugin/user/cbsm.suprx cbsm.suprx
+  FILE ${CMAKE_BINARY_DIR}/plugin/kernel/cbsm.skprx cbsm.skprx
   FILE ${CMAKE_SOURCE_DIR}/banim.xgif banim.xgif
+  FILE ${CMAKE_SOURCE_DIR}/lbanim.xgif lbanim.xgif
 )
