@@ -1,7 +1,7 @@
 # CBS-Manager
 This tool can display an Image/Animation/Console Info during the PSVita boot process.<br>
 <br>
-The boot logo that is displayed at the beginning can not be hidden with this plugin. Use https://github.com/skgleba/enso_ex instead.<br>
+The boot logo that is displayed at the beginning can not be hidden with this plugin. Use https://github.com/SKGleba/CBS-Manager/tree/master/enso_nologo to hide the logo.<br>
 <br>
 ### To update365 users:
 If Enso 3.65-update365 is installed and boot_config.txt exists in vs0:tai/ CBS will not be loaded, please update Enso to the latest version.<br>
