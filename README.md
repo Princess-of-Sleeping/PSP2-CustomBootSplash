@@ -1,3 +1,5 @@
+# THIS TOOL IS OUTDATED, PLEASE USE https://github.com/SKGleba/VitaTools#vita-bootanim INSTEAD
+
 # CBS-Manager
 This tool can display an Image/Animation/Console Info during the PSVita boot process.<br>
 <br>
