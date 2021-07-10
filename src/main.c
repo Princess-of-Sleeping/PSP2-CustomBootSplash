@@ -1,77 +1,197 @@
-/*
-  Custom Boot Splash
-  Copyright (C) 2018, Princess of Sleeping
-  This program is free software: you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation, either version 3 of the License, or
-  (at your option) any later version.
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-  You should have received a copy of the GNU General Public License
-  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
+#include <psp2/kernel/processmgr.h>
+#include <psp2/io/fcntl.h>
+#include <psp2/io/devctl.h>
+#include <psp2/ctrl.h>
+#include <psp2/sysmodule.h>
+#include <psp2/kernel/sysmem.h>
+#include <psp2/net/netctl.h>
+#include <psp2/io/stat.h>
 
-#include <psp2kern/kernel/modulemgr.h>
-#include <psp2kern/kernel/sysmem.h>
-#include <psp2kern/kernel/threadmgr.h>
-#include <psp2kern/kernel/cpu.h>
-#include <psp2kern/io/fcntl.h>
-#include <psp2kern/io/stat.h>
-#include <psp2kern/display.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
-void _start() __attribute__ ((weak, alias ("module_start")));
-int module_start(SceSize argc, const void *args){
+#include "debug_screen.h"
 
-	SceKernelAllocMemBlockKernelOpt optp;
-	SceDisplayFrameBuf fb;
-	SceIoStat stat;
+#define printf psvDebugScreenPrintf
 
-	void *fb_addr = NULL;
+enum {
+	SCREEN_WIDTH = 960,
+	SCREEN_HEIGHT = 544,
+	PROGRESS_BAR_WIDTH = SCREEN_WIDTH,
+	PROGRESS_BAR_HEIGHT = 10,
+	LINE_SIZE = SCREEN_WIDTH,
+};
 
-	int stat_ret, uid, fd;
+static unsigned buttons[] = {
+	SCE_CTRL_SELECT,
+	SCE_CTRL_START,
+	SCE_CTRL_UP,
+	SCE_CTRL_RIGHT,
+	SCE_CTRL_DOWN,
+	SCE_CTRL_LEFT,
+	SCE_CTRL_LTRIGGER,
+	SCE_CTRL_RTRIGGER,
+	SCE_CTRL_TRIANGLE,
+	SCE_CTRL_CIRCLE,
+	SCE_CTRL_CROSS,
+	SCE_CTRL_SQUARE,
+};
 
-	stat_ret = ksceIoGetstat("ur0:tai/boot_splash.bin", &stat);
+int fcp(const char *from, const char *to) {
+	long psz;
+	FILE *fp = fopen(from,"rb");
 
-	if((stat_ret < 0) || ((uint32_t)stat.st_size != 0x1FE000) || (SCE_SO_ISDIR(stat.st_mode) != 0)){
-		return SCE_KERNEL_START_SUCCESS;
+	fseek(fp, 0, SEEK_END);
+	psz = ftell(fp);
+	rewind(fp);
+
+	char* pbf = (char*) malloc(sizeof(char) * psz);
+	fread(pbf, sizeof(char), (size_t)psz, fp);
+
+	FILE *pFile = fopen(to, "wb");
+	
+	for (int i = 0; i < psz; ++i) {
+			fputc(pbf[i], pFile);
 	}
-
-	optp.size = 0x58;
-	optp.attr = 2;
-	optp.paddr = 0x1C000000;
-
-	if((uid = ksceKernelAllocMemBlock("SceDisplay", 0x6020D006, 0x200000, &optp)) < 0){
-		return SCE_KERNEL_START_SUCCESS;
-	}
-
-	ksceKernelGetMemBlockBase(uid, (void**)&fb_addr);
-
-	fd = ksceIoOpen("ur0:tai/boot_splash.bin", SCE_O_RDONLY, 0);
-	ksceIoRead(fd, fb_addr, 0x1FE000);
-	ksceIoClose(fd);
-
-	ksceKernelCpuDcacheAndL2WritebackInvalidateRange(fb_addr, 0x1FE000);
-
-	fb.size        = sizeof(fb);
-	fb.base        = fb_addr;
-	fb.pitch       = 960;
-	fb.pixelformat = 0;
-	fb.width       = 960;
-	fb.height      = 544;
-
-	ksceDisplaySetFrameBuf(&fb, 1);
-
-	ksceDisplayWaitVblankStart();
-
-	ksceKernelFreeMemBlock(uid);
-
-	ksceKernelDelayThread(3 * 1000 * 1000);
-
-	return SCE_KERNEL_START_SUCCESS;
+   
+	fclose(fp);
+	fclose(pFile);
+	return 1;
 }
 
-int module_stop(SceSize argc, const void *args){
-	return SCE_KERNEL_STOP_SUCCESS;
+int fap(const char *from, const char *to) {
+	long psz;
+	FILE *fp = fopen(from,"rb");
+
+	fseek(fp, 0, SEEK_END);
+	psz = ftell(fp);
+	rewind(fp);
+
+	char* pbf = (char*) malloc(sizeof(char) * psz);
+	fread(pbf, sizeof(char), (size_t)psz, fp);
+
+	FILE *pFile = fopen(to, "ab");
+	
+	for (int i = 0; i < psz; ++i) {
+			fputc(pbf[i], pFile);
+	}
+   
+	fclose(fp);
+	fclose(pFile);
+	return 1;
+}
+
+uint32_t get_key(void) {
+	static unsigned prev = 0;
+	SceCtrlData pad;
+	while (1) {
+		memset(&pad, 0, sizeof(pad));
+		sceCtrlPeekBufferPositive(0, &pad, 1);
+		unsigned new = prev ^ (pad.buttons & prev);
+		prev = pad.buttons;
+		for (size_t i = 0; i < sizeof(buttons)/sizeof(*buttons); ++i)
+			if (new & buttons[i])
+				return buttons[i];
+
+		sceKernelDelayThread(1000); // 1ms
+	}
+}
+
+void press_exit(void) {
+	printf("Press any key to exit this application.\n");
+	get_key();
+	sceKernelExitProcess(0);
+}
+
+int ex(const char *fname) {
+    FILE *file;
+    if ((file = fopen(fname, "r")))
+    {
+        fclose(file);
+        return 1;
+    }
+    return 0;
+}
+
+int main(int argc, char *argv[]) {
+	(void)argc;
+	(void)argv;
+
+	psvDebugScreenInit();
+	
+	static char version[16];
+	
+	if (ex("ur0:tai/cbs.skprx") == 1)
+		sceIoRemove("ur0:tai/cbs.skprx");
+	
+	if (ex("ur0:tai/boot_config.txt") == 0) {
+		printf("Could not find boot_config.txt in ur0:tai/ !\n");
+		sceKernelDelayThread(3 * 1000 * 1000);
+		sceKernelExitProcess(0);
+		sceKernelDelayThread(3 * 1000 * 1000);
+	}
+
+	if (ex("ur0:tai/cbsm.skprx") == 0) {
+		printf("Could not find cbsm.skprx in ur0:tai/ !\n");
+		printf("copying... ");
+		fcp("app0:cbsm.skprx", "ur0:tai/cbsm.skprx");
+		printf("ok!\n");
+		printf("copying: stock animation... ");
+		fcp("app0:banim.xgif", "ur0:tai/boot_animation.img");
+		printf("ok!\n");
+		printf("copying: stock low animation... ");
+		fcp("app0:lbanim.xgif", "ur0:tai/lboot_animation.img");
+		printf("ok!\n");
+		printf("adding entry to ur0:tai/boot_config.txt... ");
+		SceUID fd = sceIoOpen("ur0:tai/boot_config_temp.txt", SCE_O_WRONLY | SCE_O_TRUNC | SCE_O_CREAT, 6);
+		sceIoWrite(fd, (void *)"# CBSM\n- load\tur0:tai/cbsm.skprx\n\n", strlen("# CBSM\n- load\tur0:tai/cbsm.skprx\n\n"));
+		sceIoClose(fd);
+		fap("ur0:tai/boot_config.txt", "ur0:tai/boot_config_temp.txt");
+		if (ex("ur0:tai/cbsm_old_cfg.txt") == 0) sceIoRename("ur0:tai/boot_config.txt", "ur0:tai/cbsm_old_cfg.txt");
+		sceIoRename("ur0:tai/boot_config_temp.txt", "ur0:tai/boot_config.txt");
+		printf("ok!\n");
+	} else {
+		printf("Found cbsm.skprx in ur0:tai/ !\n");
+		printf("removing... ");
+		sceIoRemove("ur0:tai/cbsm.skprx");
+		printf("ok!\n");
+		if (ex("ur0:tai/cbsm_old_cfg.txt") == 1) {
+			printf("restoring old boot_config.txt... ");
+			sceIoRemove("ur0:tai/boot_config.txt");
+			sceIoRename("ur0:tai/cbsm_old_cfg.txt", "ur0:tai/boot_config.txt");
+			printf("ok!\n");
+		}
+	}
+	
+	if (ex("ur0:tai/cbsm.suprx") == 0) {
+		printf("Could not find cbsm.suprx in ur0:tai/ !\n");
+		printf("copying... ");
+		fcp("app0:cbsm.suprx", "ur0:tai/cbsm.suprx");
+		printf("ok!\n");
+		if (ex("ux0:tai/config.txt") == 1 && ex("ux0:tai/config_precbsm.txt") == 0) sceIoRename("ux0:tai/config.txt", "ux0:tai/config_precbsm.txt");
+		printf("adding entry to ur0:tai/config.txt... ");
+		SceUID fd = sceIoOpen("ur0:tai/config_temp.txt", SCE_O_WRONLY | SCE_O_TRUNC | SCE_O_CREAT, 6);
+		sceIoWrite(fd, (void *)"\n# CBSM\n*NPXS10015\nur0:tai/cbsm.suprx\n", strlen("\n# CBSM\n*NPXS10015\nur0:tai/cbsm.suprx\n"));
+		sceIoClose(fd);
+		fcp("ur0:tai/config.txt", "ur0:tai/config_precbsm.txt");
+		fap("ur0:tai/config_temp.txt", "ur0:tai/config.txt");
+		sceIoRemove("ur0:tai/config_temp.txt");
+		printf("ok!\n");
+	} else {
+		printf("Found cbsm.suprx in ur0:tai/ !\n");
+		printf("removing... ");
+		sceIoRemove("ur0:tai/cbsm.suprx");
+		printf("ok!\n");
+		if (ex("ur0:tai/config_precbsm.txt") == 1) {
+			printf("restoring old config.txt... ");
+			sceIoRemove("ur0:tai/config.txt");
+			sceIoRename("ur0:tai/config_precbsm.txt", "ur0:tai/config.txt");
+			printf("ok!\n");
+		}
+	}
+	
+	printf("done!\n");
+	sceKernelDelayThread(4 * 1000 * 1000);
+	sceKernelExitProcess(0);
 }
